@@ -21,17 +21,37 @@ const int initialTime = 15;     // valeur de reset
 bool pumpRunning = false;
 bool waitingPressure = false;   // 🔴 pompe ON mais attente pression
 bool blinkState = false;
-const float PRESSURE_START = 1.5;   // 🔴 seuil en MPa pour démarrage timer
-const float PRESSURE_THRESHOLD = 20.0; // seuil sécurité en PSI (ancienne logique)
+// --- Mode de fonctionnement ---
+const bool DEBUG_MODE = false;        // true = mode test, false = mode production
+
+// --- Seuils de pression (dépendant du mode) ---
+float PRESSURE_MAX;
+float PRESSURE_MIN;
+
+// --- Seuil détection eau ---
+int WATER_THRESHOLD = 300;
+bool heatingPaused = false;          // 🔴 indique si chauffage en pause pour régulation pression
+unsigned long lastDebugTime = 0;     // Pour limiter la fréquence des messages debug
 
 // --- Setup ---
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { ; }
-  Serial.println("=== Contrôleur de pompe avec minuteur ===");
+  // Suppression du while (!Serial) pour fonctionner sans USB
+  delay(1000);  // Délai pour stabilisation
+  
+  // Configuration des seuils selon le mode
+  if (DEBUG_MODE) {
+    PRESSURE_MAX = 0.05;
+    PRESSURE_MIN = 0.04;
+    Serial.println("=== MODE TEST - Contrôleur de pompe avec minuteur ===");
+  } else {
+    PRESSURE_MAX = 0.14;
+    PRESSURE_MIN = 0.13;
+    Serial.println("=== MODE PRODUCTION - Contrôleur de pompe avec minuteur ===");
+  }
 
   pinMode(PIN_RELAY, OUTPUT);
-  digitalWrite(PIN_RELAY, LOW);
+  digitalWrite(PIN_RELAY, HIGH);  // HIGH = OFF pour relais inversé
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
   pinMode(PIN_SWITCH_INC, INPUT_PULLUP);
@@ -101,18 +121,28 @@ void loop() {
   float pressureMPa = pressurePSI * 0.00689476;
   int pressureDisplay = (int)(pressureMPa * 100.0 + 0.5); // ex : 0.15 MPa → affichage "15"
 
+  // --- Affichage compact en mode test (limité à 1Hz pour réduire charge USB) ---
+  if (DEBUG_MODE && (currentTime - lastDebugTime > 1000)) {
+    int waterValue = analogRead(PIN_WATER);
+    bool waterPresent = (waterValue > WATER_THRESHOLD);
+    bool relayState = !digitalRead(PIN_RELAY); // Inversé : LOW=ON, HIGH=OFF
+    Serial.print("Pression:");
+    Serial.print(pressureMPa, 3);
+    Serial.print(", Eau:");
+    Serial.print(waterValue);
+    Serial.print(waterPresent ? "/ON" : "/OFF");
+    Serial.print(", Relay:");
+    Serial.println(relayState ? "ON" : "OFF");
+    lastDebugTime = currentTime;
+  }
+
   // --- Attente pression avant démarrage du timer ---
   if (waitingPressure) {
-    // clignotement affichage
-    if (currentTime - blinkTime > 500) {
-      blinkTime = currentTime;
-      blinkState = !blinkState;
-      if (blinkState) displayMinutes(timeRemaining);
-      else tm.display("    ");
-    }
+    // Affichage de la valeur brute du capteur de pression (0-1023)
+    tm.display(raw);
 
-    // démarrage minuteur seulement si pression >= 1.5 MPa
-    if (pressureMPa >= PRESSURE_START) {
+    // démarrage minuteur seulement si pression >= seuil max
+    if (pressureMPa >= PRESSURE_MAX) {
       waitingPressure = false;
       startTime = millis(); // vrai lancement chrono
       Serial.println("✅ Pression atteinte -> Minuterie démarrée");
@@ -132,8 +162,34 @@ void loop() {
       return;
     }
 
+    // --- NOUVELLE LOGIQUE DE RÉGULATION PRESSION ---
+    // Si pression >= 0.13 MPa et chauffage pas encore en pause
+    if (pressureMPa >= PRESSURE_MAX && !heatingPaused) {
+      heatingPaused = true;
+      digitalWrite(PIN_RELAY, HIGH); // Arrêt chauffage (HIGH = OFF)
+      Serial.print("🛑 Chauffage arrêté - Pression: ");
+      Serial.print(pressureMPa, 3);
+      Serial.println(" MPa");
+    }
+    // Si pression <= 0.125 MPa et chauffage en pause (hystérésis)
+    else if (pressureMPa <= PRESSURE_MIN && heatingPaused) {
+      heatingPaused = false;
+      digitalWrite(PIN_RELAY, LOW);  // Redémarrage chauffage (LOW = ON)
+      Serial.print("🔥 Chauffage redémarré - Pression: ");
+      Serial.print(pressureMPa, 3);
+      Serial.println(" MPa");
+    }
+
     int minutesLeft = (totalSeconds - elapsed) / 60;
     displayTimePressure(minutesLeft, pressureDisplay);
+    
+    // Affichage état chauffage dans le moniteur série
+    Serial.print("Timer: ");
+    Serial.print(minutesLeft);
+    Serial.print("min - Pression: ");
+    Serial.print(pressureMPa, 3);
+    Serial.print(" MPa - Chauffage: ");
+    Serial.println(heatingPaused ? "PAUSE" : "ACTIF");
   }
 
   delay(100);
@@ -142,20 +198,27 @@ void loop() {
 // --- Démarrage pompe (relais ON) ---
 void startPump() {
   pumpRunning = true;
-  digitalWrite(PIN_RELAY, HIGH);
+  // Commutation relais avec délai pour éviter parasites USB
+  delay(50);  // Petit délai avant commutation
+  digitalWrite(PIN_RELAY, LOW);   // LOW = ON pour relais inversé
+  delay(100); // Délai après commutation pour stabilisation
   digitalWrite(PIN_LED, HIGH);
   tm.display("ON  ");
   delay(1000);
-  Serial.println("Pompe enclenchée (attente pression)");
+  if (DEBUG_MODE) Serial.println("Pompe enclenchée (attente pression)");
 }
 
 // --- Arrêt pompe ---
 void stopPump() {
   pumpRunning = false;
   waitingPressure = false;
-  digitalWrite(PIN_RELAY, LOW);
+  heatingPaused = false;  // 🔴 Reset de l'état de régulation
+  // Commutation relais avec délai pour éviter parasites USB
+  delay(50);
+  digitalWrite(PIN_RELAY, HIGH);  // HIGH = OFF pour relais inversé
+  delay(100); // Stabilisation après commutation
   digitalWrite(PIN_LED, LOW);
-  Serial.println("Pompe arrêtée");
+  if (DEBUG_MODE) Serial.println("Pompe arrêtée");
 }
 
 // --- Fin de cycle ---
@@ -176,30 +239,35 @@ void finishCycle() {
   displayMinutes(timeRemaining);
 }
 
-// --- Affiche MM00 quand réglage ---
+// --- Affiche MMPP (minutes + pression actuelle) ---
 void displayMinutes(int minutes) {
   if (minutes > 99) minutes = 99;
-  int display_value = minutes * 100;
-  tm.display(display_value);
+  
+  // Lecture de la pression actuelle
+  int raw = analogRead(PIN_PRESSURE);
+  float voltage = raw * (5.0 / 1023.0);
+  float pressurePSI = (voltage - 0.5) * 7.5;
+  if (pressurePSI < 0) pressurePSI = 0;
+  float pressureMPa = pressurePSI * 0.00689476;
+  int pressureDisplay = (int)(pressureMPa * 100.0 + 0.5);
+  
+  // Toujours afficher format MMPP (minutes + pression)
+  displayTimePressure(minutes, pressureDisplay);
 }
 
-// --- Affiche MMxx (minutes + pression) ---
+// --- Affiche MMPP (minutes + pression) ---
 void displayTimePressure(int minutes, int pressure_val) {
   if (minutes > 99) minutes = 99;
   if (pressure_val > 99) pressure_val = 99;
+  
+  // Format: MMPP (MM=minutes, PP=pression en centièmes MPa)
+  // Exemples: 1504 = 15 min + 0.04 MPa, 0605 = 6 min + 0.05 MPa
   int display_value = minutes * 100 + pressure_val;
   tm.display(display_value);
 }
 
-// --- Fonction lecture eau (ta version) ---
+// --- Fonction lecture eau ---
 bool readWater() {
-  int seuil = 300;
   int valeur = analogRead(PIN_WATER);
-  if (valeur > seuil) Serial.print("Eau présente");
-  else Serial.print("Pas d'eau");
-  Serial.print("(");
-  Serial.print(valeur);
-  Serial.println(")");
-  
-  return (valeur > seuil); // retourne vrai si eau présente
+  return (valeur > WATER_THRESHOLD); // retourne vrai si eau présente
 }
