@@ -37,46 +37,47 @@ SECTEUR 220V ──┬── INTERRUPTEUR GÉNÉRAL ──┬── TRANSFORMATE
                       (contacts NO)
 ```
 
-### Connections Arduino Mega32U4
+### Connections Arduino Mega32U4 (VERSION ACTUELLE)
 
 ```
 Mega32U4                     Composant
 ========                     =========
-+5V ────────────────────────── VCC DS3231, Afficheur, Capteurs
-+3.3V ──────────────────────── VCC Relais (bobine)
++5V ────────────────────────── VCC Afficheur, Capteurs
 GND ────────────────────────── GND commun tous composants
 
-Pin 2 ──────────────────────── Vis inox #1 (détection eau)
-Pin 3 ──────────────────────── Vis inox #2 (détection eau)
-Pin 4 ──────────────────────── Signal relais (avec résistance 1kΩ)
-Pin 5 ──────────────────────── Switch + (avec condo 104)
-Pin 6 ──────────────────────── Switch - (avec condo 104)  
-Pin 7 ──────────────────────── Switch Mode (avec condo 104)
-(Pin 8 non utilisé - interrupteur coupe l'alimentation directement)
-Pin 9 ──────────────────────── CLK Afficheur TM1637
-Pin 10 ─────────────────────── DIO Afficheur TM1637
-Pin A0 ─────────────────────── Signal capteur pression
-
-SDA (Pin 20) ───────────────── SDA DS3231
-SCL (Pin 21) ───────────────── SCL DS3231
+Pin 2 ──────────────────────── CLK Afficheur TM1637
+Pin 3 ──────────────────────── DIO Afficheur TM1637
+Pin 9 ──────────────────────── Signal relais (module pré-équipé)
+Pin 10 ─────────────────────── LED témoin
+Pin 11 ─────────────────────── Switch INC + (avec résistance pull-up)
+Pin 12 ─────────────────────── Switch DEC - (avec résistance pull-up)
+Pin A0 ─────────────────────── Sondes détection eau (diviseur résistif)
+Pin A5 ─────────────────────── Signal capteur pression (0.5V-4.5V)
 ```
 
-### Détail Circuit de Sécurité Eau
+**Note:** DS3231 non utilisé dans la version actuelle du code.
+
+### Détail Circuit de Sécurité Eau (NOUVELLE VERSION)
 
 ```
      +5V
       │
-      ├── 10kΩ ──── Pin 2 (Mega32U4)
-      │
-   Vis INOX #1
-      │
-    EAU (conductrice)
-      │
-   Vis INOX #2  
-      │
-      ├── 10kΩ ──── Pin 3 (Mega32U4)
-      │
-     GND
+   Vis INOX #1 ────────────── Pin A0 (Mega32U4)
+      │                              │
+    EAU (conductrice)              │
+      │                              │
+   Vis INOX #2 ──── 100kΩ ───────┴── GND
+
+
+**Principe de fonctionnement:**
+- **Avec eau** (conductrice): Pin A0 lit ~5V (HIGH = 1023)
+- **Sans eau** (circuit ouvert): Pin A0 lit ~0V via pull-down 100kΩ (LOW = 0)
+- **Seuil détection**: WATER_THRESHOLD = 300 (dans le code)
+
+**Avantages:**
+- Circuit simple (2 composants seulement)
+- Sécurité fail-safe: panne = pas d'eau détectée = arrêt
+- Faible consommation (50μA max)
 ```
 
 ### Circuit Capteur Pression
@@ -90,33 +91,53 @@ Jaune (Signal) ──────── Pin A0 Mega32U4
                         (0.5V-4.5V = 0-30PSI)
 ```
 
-### Circuit Relais de Sécurité
+### Module Relais Pré-Équipé
 
 ```
-Mega32U4 Pin 4 ──── 1kΩ ──── Base Transistor NPN (2N2222)
-                              │
-+3.3V ──── Bobine Relais ──── Collecteur
-           │
-           └── Diode 1N4007 (cathode vers +3.3V)
-           
-GND ─────────────────────────── Émetteur Transistor
+MODULE RELAIS (avec transistor et résistances intégrées)
+====================================================
 
-CONTACTS RELAIS (ISOLÉS):
+CONNEXIONS MODULE:
+VCC ──── +5V Mega32U4
+GND ──── GND Mega32U4  
+IN  ──── Pin 9 Mega32U4 (PIN_RELAY)
+
+CONTACTS 220V (ISOLÉS):
 NO (Normalement Ouvert) ──── PHASE 220V vers résistance
-COM (Commun) ──────────────── PHASE 220V secteur  
+COM (Commun) ────────────── PHASE 220V secteur  
 NC (Normalement Fermé) ──── Non utilisé
+
+**Logique de commande:**
+- IN = HIGH (5V): Relais OFF (chauffage arrêté)
+- IN = LOW (0V):  Relais ON  (chauffage actif)
+- LED intégrée sur module indique l'état
+
+**Sécurités intégrées:**
+- Transistor + résistance de base
+- Diode de roue libre
+- LED indicateur d'état
+- Isolation galvanique 5V/220V
 ```
 
-### Switches avec Anti-Rebond
+### Switches avec Pull-up Internes (VERSION ACTUELLE)
 
 ```
-Pour chaque switch (+ / - / Mode):
+Pour chaque switch (INC Pin 11 / DEC Pin 12):
 
-+5V ──── 10kΩ ──── Pin Arduino
-          │
-      Switch ──── GND
-          │
-    Condensateur 104 ──── GND
+Pin Arduino ──── INPUT_PULLUP (résistance interne ~47kΩ vers +5V)
+     │
+   Switch ──── GND
+
+**Logique:**
+- Switch ouvert:  Pin lit HIGH (5V)
+- Switch appuyé: Pin lit LOW  (0V)
+- Code: digitalRead(PIN) == LOW détecte l'appui
+- Anti-rebond: délai 200ms entre lectures
+
+**Avantages:**
+- Pas de composants externes requis
+- Circuit simplifié (juste le switch + fil GND)
+- Pull-up stable intégrée dans le microcontrôleur
 ```
 
 ### Interrupteur Principal 220V (SOLUTION TRANSFORMATEUR)

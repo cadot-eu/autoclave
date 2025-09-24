@@ -20,6 +20,7 @@ int timeRemaining = 15;         // durée initiale en minutes
 const int initialTime = 15;     // valeur de reset
 bool pumpRunning = false;
 bool waitingPressure = false;   // 🔴 pompe ON mais attente pression
+bool cycleFinished = false;     // 🔴 indique si cycle terminé (affiche OF)
 bool blinkState = false;
 // --- Mode de fonctionnement ---
 const bool DEBUG_MODE = false;        // true = mode test, false = mode production
@@ -32,6 +33,8 @@ float PRESSURE_MIN;
 int WATER_THRESHOLD = 300;
 bool heatingPaused = false;          // 🔴 indique si chauffage en pause pour régulation pression
 unsigned long lastDebugTime = 0;     // Pour limiter la fréquence des messages debug
+unsigned long lastDisplayTime = 0;   // Pour limiter la fréquence de mise à jour affichage
+int lastDisplayedRaw = -1;           // Dernière valeur affichée
 
 // --- Setup ---
 void setup() {
@@ -45,8 +48,8 @@ void setup() {
     PRESSURE_MIN = 0.04;
     Serial.println("=== MODE TEST - Contrôleur de pompe avec minuteur ===");
   } else {
-    PRESSURE_MAX = 0.14;
-    PRESSURE_MIN = 0.13;
+    PRESSURE_MAX = 0.16;
+    PRESSURE_MIN = 0.15;
     Serial.println("=== MODE PRODUCTION - Contrôleur de pompe avec minuteur ===");
   }
 
@@ -78,6 +81,16 @@ void loop() {
     return;
   }
 
+  // --- Mise à jour affichage pression quand pompe arrêtée (toutes les 500ms) ---
+  if (!pumpRunning && (currentTime - lastDisplayTime > 500)) {
+    if (cycleFinished) {
+      displayOFPressure();
+    } else {
+      displayMinutes(timeRemaining);
+    }
+    lastDisplayTime = currentTime;
+  }
+
   // --- Gestion boutons (quand pompe arrêtée uniquement) ---
   if (!pumpRunning && (currentTime - lastButtonTime > 200)) {
     bool incPressed = (digitalRead(PIN_SWITCH_INC) == LOW);
@@ -86,6 +99,7 @@ void loop() {
     if (incPressed && decPressed) {
       // --- DOUBLE APPUI ---
       Serial.println("🔄 RESET + START demandé");
+      cycleFinished = false;   // 🔴 Reset du flag OF
       timeRemaining = initialTime;
       displayMinutes(timeRemaining);
       delay(200);
@@ -138,8 +152,12 @@ void loop() {
 
   // --- Attente pression avant démarrage du timer ---
   if (waitingPressure) {
-    // Affichage de la valeur brute du capteur de pression (0-1023)
-    tm.display(raw);
+    // Affichage stabilisé de la valeur brute (mise à jour toutes les 300ms)
+    if (currentTime - lastDisplayTime > 300 || abs(raw - lastDisplayedRaw) > 5) {
+      tm.display(raw);
+      lastDisplayTime = currentTime;
+      lastDisplayedRaw = raw;
+    }
 
     // démarrage minuteur seulement si pression >= seuil max
     if (pressureMPa >= PRESSURE_MAX) {
@@ -224,6 +242,7 @@ void stopPump() {
 // --- Fin de cycle ---
 void finishCycle() {
   stopPump();
+  cycleFinished = true;  // 🔴 Active l'affichage OF
   tm.display("OFF ");
   delay(2000);
 
@@ -236,7 +255,7 @@ void finishCycle() {
   delay(3000);
 
   timeRemaining = initialTime;   // reset du timer
-  displayMinutes(timeRemaining);
+  displayOFPressure();           // Affiche OF + pression
 }
 
 // --- Affiche MMPP (minutes + pression actuelle) ---
@@ -260,10 +279,44 @@ void displayTimePressure(int minutes, int pressure_val) {
   if (minutes > 99) minutes = 99;
   if (pressure_val > 99) pressure_val = 99;
   
-  // Format: MMPP (MM=minutes, PP=pression en centièmes MPa)
-  // Exemples: 1504 = 15 min + 0.04 MPa, 0605 = 6 min + 0.05 MPa
-  int display_value = minutes * 100 + pressure_val;
-  tm.display(display_value);
+  // Format: MMPP (MM=minutes avec zéro initial, PP=pression)
+  // Exemples: 0816 = 08 min + 0.16 MPa, 1504 = 15 min + 0.04 MPa
+  
+  // Formatage correct pour affichage 4 digits avec zéros initiaux
+  String display_str = "";
+  if (minutes < 10) {
+    display_str += "0";
+  }
+  display_str += String(minutes);
+  
+  if (pressure_val < 10) {
+    display_str += "0";
+  }
+  display_str += String(pressure_val);
+  
+  tm.display(display_str.c_str());
+}
+
+// --- Affiche OFPP (OF + pression actuelle) ---
+void displayOFPressure() {
+  // Lecture de la pression actuelle
+  int raw = analogRead(PIN_PRESSURE);
+  float voltage = raw * (5.0 / 1023.0);
+  float pressurePSI = (voltage - 0.5) * 7.5;
+  if (pressurePSI < 0) pressurePSI = 0;
+  float pressureMPa = pressurePSI * 0.00689476;
+  int pressureDisplay = (int)(pressureMPa * 100.0 + 0.5);
+  
+  // Format: OFPP (OF + pression)
+  // Exemples: OF16 = cycle fini + 0.16 MPa, OF04 = cycle fini + 0.04 MPa
+  
+  String display_str = "OF";
+  if (pressureDisplay < 10) {
+    display_str += "0";
+  }
+  display_str += String(pressureDisplay);
+  
+  tm.display(display_str.c_str());
 }
 
 // --- Fonction lecture eau ---
