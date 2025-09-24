@@ -1,0 +1,12 @@
+Diymore Dm Strong Series Pro Micro Atmega32u4
+alimentation 12v 2a sur carte arduino
+D2-D3 2 sur vis inox pour niveau d'eau avec résistance de 100 kohm
+D6 CLK de 4x8 segment
+D7 DIO de 4x7 segment
+D9 relais 5v/220V pour résistance chauffante
+D8 led rouge avec resistance 220 ohm en sortie sur gnd
+D10 led verte avec resistance 220 ohm en sortie sur gnd
+D11 led jaune avec resistance 220 ohm en sortie sur gnd
+D12 bp vert pour diminuer
+D13 bp bleu pour augmenter
+A0 Capteur pression 0-30PSI (0.5-4.5V analogique)

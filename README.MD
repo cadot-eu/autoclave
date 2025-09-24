@@ -1,5 +1,12 @@
 # Schéma de Câblage - Contrôleur Autoclave Sécurisé
 
+### Illustrations du Schéma (dossier `schemas`)
+
+![Schéma électronique 1](schemas/elctronic.jpg)
+![Schéma électronique 2](schemas/elctronic.png)
+![Explication 1](schemas/explication.jpg)
+![Explication 2](schemas/explication.png)
+
 ## ⚠️ SÉCURITÉ CRITIQUE ⚠️
 
 **ATTENTION: Ce système contrôle une résistance 220V dans un autoclave sous pression. Une erreur de câblage peut être MORTELLE. Faites vérifier par un électricien qualifié.**
