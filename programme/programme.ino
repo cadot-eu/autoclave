@@ -100,7 +100,7 @@ void loop() {
       // --- DOUBLE APPUI ---
       Serial.println("🔄 RESET + START demandé");
       cycleFinished = false;   // 🔴 Reset du flag OF
-      timeRemaining = initialTime;
+      // timeRemaining conserve sa valeur actuelle (ne pas réinitialiser à initialTime)
       displayMinutes(timeRemaining);
       delay(200);
       startPump();             // Pompe ON mais timer pas lancé tant que pression < 1.5 MPa
@@ -152,9 +152,15 @@ void loop() {
 
   // --- Attente pression avant démarrage du timer ---
   if (waitingPressure) {
-    // Affichage stabilisé de la valeur brute (mise à jour toutes les 300ms)
+    // Affichage de la pression convertie au format "PXX" (mise à jour toutes les 300ms)
     if (currentTime - lastDisplayTime > 300 || abs(raw - lastDisplayedRaw) > 5) {
-      tm.display(raw);
+      // Format: "P" + pression sur deux chiffres (ex: P15 pour 0.15 MPa)
+      String display_str = "P";
+      if (pressureDisplay < 10) {
+        display_str += "0";
+      }
+      display_str += String(pressureDisplay);
+      tm.display(display_str.c_str());
       lastDisplayTime = currentTime;
       lastDisplayedRaw = raw;
     }

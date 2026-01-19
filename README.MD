@@ -222,6 +222,43 @@ Quand interrupteur ON  = Arduino démarre automatiquement avec timer 45min
 - ✅ **Démarrage automatique** à chaque mise sous tension
 - ✅ **Moins cher** qu'une solution optocoupleur
 
+## Envoi du Code via l'IDE Arduino
+
+### Prérequis
+1. **IDE Arduino** installé sur votre ordinateur
+2. **Carte Arduino Mega32U4** (ou compatible) connectée via USB
+3. **Bibliothèque TM1637** installée dans l'IDE Arduino
+
+### Installation de la Bibliothèque TM1637
+1. Ouvrez l'IDE Arduino
+2. Allez dans **Outils → Gérer les bibliothèques...**
+3. Recherchez **"TM1637"** par Avishay Orpaz
+4. Cliquez sur **Installer**
+
+### Configuration de l'IDE
+1. Connectez votre carte Arduino Mega32U4 via USB
+2. Dans l'IDE Arduino :
+   - **Outils → Type de carte** : Sélectionnez "Arduino Leonardo"
+   - **Outils → Port** : Sélectionnez le port correspondant à votre carte (ex: COM3, /dev/ttyACM0)
+   - **Outils → Processeur** : "ATmega32U4"
+
+### Téléversement du Code
+1. Ouvrez le fichier `programme/programme.ino` dans l'IDE Arduino
+2. Vérifiez que toutes les bibliothèques nécessaires sont installées
+3. Cliquez sur le bouton **"Vérifier"** (✓) pour compiler le code sans erreurs
+4. Cliquez sur le bouton **"Téléverser"** (→) pour envoyer le code sur la carte
+5. Attendez que le message **"Téléversement terminé"** s'affiche
+
+### Vérification du Téléversement
+- L'affichage TM1637 devrait montrer le temps restant (ex: "4500" pour 45 minutes)
+- La LED sur la pin 10 devrait s'allumer brièvement au démarrage
+- Ouvrez le **Moniteur Série** (Outils → Moniteur Série) à 115200 bauds pour voir les messages de débogage
+
+### Dépannage
+- **Erreur "Board at COMx is not available"** : Vérifiez que la carte est bien connectée et que le port est correct
+- **Erreur de compilation "TM1637.h: No such file or directory"** : Vérifiez l'installation de la bibliothèque TM1637
+- **Le code ne se téléverse pas** : Essayez de réinitialiser manuellement la carte en appuyant sur le bouton RESET juste avant le téléversement
+
 ## Test de Validation
 
 Avant utilisation, tester obligatoirement:
