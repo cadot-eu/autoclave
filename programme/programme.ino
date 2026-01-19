@@ -16,7 +16,7 @@ TM1637 tm(CLK_PIN, DIO_PIN);
 unsigned long startTime = 0;
 unsigned long lastButtonTime = 0;
 unsigned long blinkTime = 0;
-int timeRemaining = 15;         // durée initiale en minutes
+int timeRemaining = 45;         // durée initiale en minutes
 const int initialTime = 15;     // valeur de reset
 bool pumpRunning = false;
 bool waitingPressure = false;   // 🔴 pompe ON mais attente pression
@@ -48,8 +48,8 @@ void setup() {
     PRESSURE_MIN = 0.04;
     Serial.println("=== MODE TEST - Contrôleur de pompe avec minuteur ===");
   } else {
-    PRESSURE_MAX = 0.16;
-    PRESSURE_MIN = 0.15;
+    PRESSURE_MAX = 0.15;
+    PRESSURE_MIN = 0.14;
     Serial.println("=== MODE PRODUCTION - Contrôleur de pompe avec minuteur ===");
   }
 
