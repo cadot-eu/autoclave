@@ -15,6 +15,15 @@ This project implements a safety-critical autoclave controller with the followin
 - **Pressure regulation** with hysteresis control
 - **4-digit TM1637 display** for status monitoring
 
+## Schematic Diagrams
+
+![Electronic Schematic 1](schemas/elctronic.jpg)
+![Electronic Schematic 2](schemas/elctronic.png)
+![Explanation Diagram 1](schemas/explication.jpg)
+![Explanation Diagram 2](schemas/explication.png)
+![3D Schematic](schemas/schematic_3d.png)
+![Wiring Schematic](schemas/schematic.png)
+
 ## ⚠️ CRITICAL SAFETY WARNING ⚠️
 
 **WARNING: This system controls a 220V heating element in a pressurized autoclave. Wiring errors can be FATAL. Have the system verified by a qualified electrician before use.**
