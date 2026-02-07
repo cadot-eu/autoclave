@@ -18,9 +18,7 @@ This project implements a safety-critical autoclave controller with the followin
 ## Schematic Diagrams
 
 ![Electronic Schematic 1](schemas/elctronic.jpg)
-![Electronic Schematic 2](schemas/elctronic.png)
 ![Explanation Diagram 1](schemas/explication.jpg)
-![Explanation Diagram 2](schemas/explication.png)
 ![3D Schematic](schemas/schematic_3d.png)
 ![Wiring Schematic](schemas/schematic.png)
 
